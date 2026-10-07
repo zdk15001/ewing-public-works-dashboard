@@ -1,0 +1,15 @@
+# R and RStudio leftovers. The scripts rebuild everything that matters.
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Secrets. This project uses none, but if you add a Census API key it
+# lives in .Renviron and must never be committed.
+.Renviron
+
+# Records of where the app was published; they name your account.
+rsconnect/
+
+# Things set aside instead of deleted.
+hold-then delete/
