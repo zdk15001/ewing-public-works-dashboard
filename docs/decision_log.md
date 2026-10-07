@@ -8,7 +8,13 @@ the first three parts of each entry. **The last line of each entry is left
 blank on purpose.** Agreeing or disagreeing is the author's job, and an AI
 tool cannot do it for you.
 
-All numbers are from the 2026 budget year unless a year is given.
+Decisions 1 to 13 are from the first version, which used only the budget
+database and the road mileage. Decisions 14 to 19 were added on October 7,
+2026, when the Census Bureau's road spending data became the main measure.
+Where a later decision changes an earlier one, the earlier entry says so.
+
+Budget numbers are from the 2026 budget year unless a year is given. Road
+upkeep numbers are from fiscal year 2022.
 
 ---
 
@@ -22,6 +28,11 @@ sheet (what the town planned to spend when it adopted the budget).
 column is one year behind, and the current-year column is the one the
 council actually votes on. The dashboard says "budgeted" everywhere so
 nobody reads it as spending.
+
+**Changed in version 2.** This still holds for the two budget measures,
+but they are no longer the main measure. The budget database has no
+spending column at all, so actual spending had to come from another
+source. See decision 14.
 
 **Agree or disagree, and why:**
 
@@ -39,7 +50,7 @@ $3,345,500.
 
 **Agree or disagree, and why:**
 
-## 3. Offer two ways of counting: public works, and public works plus solid waste
+## 3. Offer two ways of counting the budget: public works, and public works plus solid waste
 
 **What the AI did.** Kept both, and made "what to count" a control on the
 dashboard instead of choosing one.
@@ -89,9 +100,10 @@ group.
 
 ## 6. "Similar towns" means population within 25 percent of Ewing's
 
-**What the AI did.** Marked the 44 towns whose 2026 population is between
-29,273 and 48,788 (Ewing: 39,030), and used the same 44 in every year.
-Five of the 44 have no 2026 budget on file, so the 2026 figure shows 39.
+**What the AI did.** Marked the 44 towns whose population in the 2026
+sheet (which is a 2025 estimate) is between 29,273 and 48,788 (Ewing:
+39,030), and used the same 44 in every year. Five of the 44 have no 2026
+budget on file, so the 2026 figure shows 39.
 
 **Why, and what else was possible.** Population is the measure of
 "similar" a council member would expect. Fixing the group once means the
@@ -124,7 +136,7 @@ would be a third number.
 budget year, and said so in the trend figure's subtitle and caption.
 
 **Why, and what else was possible.** Adjusting needs a price index, which
-would be a third data source. The trend figure is meant for comparing
+would be one more data source. The trend figure is meant for comparing
 Ewing with the two medians in the same year, and that comparison is fair
 without adjusting. It is not fair for comparing 2016 with 2026: a flat
 line in this figure is a budget that shrank in real terms. If the
@@ -139,7 +151,7 @@ should be reversed.
 ("Ewing township"); NJDOT uses only a name ("Ewing Twp"). The script
 rewrites NJDOT's abbreviations and joins on county plus name. That matches
 548 of 564 towns. The other 16 are listed one by one in
-`scripts/03_join_and_check.R`.
+`scripts/04_join_and_check.R`.
 
 **Why, and what else was possible.** There is no shared code to join on.
 County has to be in the key because names repeat across counties. Three of
@@ -206,5 +218,142 @@ a table.
 color. Starting the axis at zero keeps the gap between Ewing and the
 medians in proportion. The table means no number can be read only by
 squinting at a bar.
+
+**Agree or disagree, and why:**
+
+## 14. Make actual road spending the main measure, and keep the budget as the broader one
+
+**What the AI did.** Added a third data source, the Census Bureau's 2022
+Census of Governments, and used its item E44 ("Regular Highways, Current
+Operations"): what each town reported spending in fiscal year 2022 on
+running and maintaining its streets and roads. The dashboard opens on that
+measure. The two budget measures from decision 3 are still offered, and
+the figure over time still uses the budget.
+
+**Why, and what else was possible.** The first version answered "how much
+does Ewing spend per mile of road?" with a number that was neither
+spending nor only roads. For Ewing, road upkeep in 2022 ($993,000) was 36
+percent of that year's public works budget ($2,757,900), and across the
+222 towns with both numbers the middle town's share was 43 percent. The
+budget database has no line for roads alone, so a better number had to
+come from somewhere else. The other route was each town's own budget
+document, which has a Streets and Roads line with what was actually paid.
+That is the more direct source, but it means collecting and reading one
+PDF per town from several dozen town websites. The Census Bureau has
+already done a version of that work for every town, so it was used
+instead. The budget measures were kept for two reasons: they are the only
+ones filed every year, and seeing all three side by side shows how much
+the answer depends on the definition. In 2022 the two kinds of measure
+agree in direction but not closely (rank correlation 0.67 across the 222
+towns), and Ewing is below the median on both.
+
+**Agree or disagree, and why:**
+
+## 15. Use only the numbers towns reported, not the Census Bureau's estimates
+
+**What the AI did.** Every amount in the Census file carries a flag. For
+road upkeep in New Jersey, 225 towns have a reported number (flag R) and
+245 have an imputed one (flag I), which is an estimate the Census Bureau
+filled in for a town that did not respond. Another 93 have no road item at
+all. Only the 225 reported numbers are used. The rest are missing, and
+that includes the 93, which are not counted as $0.
+
+**Why, and what else was possible.** Imputed numbers exist so that state
+totals come out right. They are not a record of what any one town spent,
+and ranking Ewing against another town's estimate would be comparing a
+fact with a guess. The cost is a smaller and less typical group: of the 44
+towns of similar population, 31 reported. Larger towns reported more often
+than small ones (34 of the 38 towns over 50,000 people, against 45 of the
+187 under 5,000), so the statewide median is the median of towns that
+reported. Keeping the estimates would not have changed the story: with
+them, Ewing ranks 30th of 40 similar towns instead of 24th of 31, and the
+group's median is $15,393 instead of $16,826.
+
+The 93 towns with no road item are the harder call. Of those, 51 have a
+reported number for every other item, so they answered the survey and
+simply have nothing sorted under roads. Read literally, that is $0. It was
+treated as missing instead, because a town such as New Brunswick does not
+maintain its streets for nothing; its road costs are most likely under a
+broader heading. Counting the 51 as $0 would lower the statewide median to
+$14,788 (276 towns) and the similar-town median to $15,654 (33 towns), and
+Ewing would still rank 24th.
+
+**Agree or disagree, and why:**
+
+## 16. Count upkeep only, and leave out road construction
+
+**What the AI did.** Used current operations (item E44) and left out
+construction (item F44), which is where repaving would be.
+
+**Why, and what else was possible.** Only 79 New Jersey towns reported a
+construction number for 2022, and only 4 of the 44 towns of similar
+population. Ewing has none on file, though its own 2023 budget lists a
+$1,000,000 road improvement program in its capital budget. Adding the two
+items together would treat every town with no construction number as
+having spent nothing on construction, which is plainly wrong for Ewing.
+So the measure is called road upkeep and the dashboard says in several
+places that repaving is not in it. This is the largest thing still
+missing from the picture: for Ewing, the capital program is about as
+large as a year of upkeep.
+
+**Agree or disagree, and why:**
+
+## 17. Match the Census names to municipal codes, with 10 matched by hand
+
+**What the AI did.** The Census Bureau writes names in capitals with the
+type spelled out ("EWING TOWNSHIP"). Lower-casing them and joining on
+county plus name matches 553 of its 563 New Jersey municipalities. The
+other 10 are listed one by one in `scripts/04_join_and_check.R`.
+
+**Why, and what else was possible.** As with the road mileage (decision
+9), there is no shared code. The Census file has a federal place code, but
+the budget database does not, so a third table would have been needed to
+connect them. Two of the hand matches need a second look: the Census
+Bureau lists "PRINCETON MUNICIPALITY" where the budget database says
+"Princeton borough," and "ORANGE CITY TOWNSHIP" for the City of Orange
+Township. One town, Lafayette township in Sussex County, is not in the
+Census file at all. The script checks that every Census town gets exactly
+one code and no code is used twice.
+
+**Agree or disagree, and why:**
+
+## 18. Put 2022 spending over 2019 road miles, for the towns that are similar in 2026
+
+**What the AI did.** Divided fiscal year 2022 road upkeep by March 2019
+municipal road miles, and compared Ewing with the same 44 towns chosen in
+decision 6 from 2026 population.
+
+**Why, and what else was possible.** Each piece is the latest of its kind:
+the Census Bureau asks every town only in years ending in 2 and 7, NJDOT
+has published town mileage only for 2019, and the comparison group was
+already fixed. Three different years in one number is not ideal. Road
+miles change slowly, so the mileage gap matters least. The comparison
+group could instead have been chosen from 2022 population, which would
+change a few towns at the edge of the 25 percent band. There is no trend:
+the Census Bureau's 2017 and 2018 figures for Ewing are estimates, not
+reported numbers, and Ewing is not in the smaller yearly sample files for
+2019, 2020, 2023 or 2024. (Those other years' files were looked at but
+are not in `data/`.) About one town in twenty has a fiscal year that ends
+in June, so "2022" is not the same twelve months for every town.
+
+**Agree or disagree, and why:**
+
+## 19. Use Ewing's own budget as a check, not as data
+
+**What the AI did.** Read the Streets and Roads lines in Ewing's adopted
+budgets on the township's website and compared them with the Census
+figure. They are within 1 percent (see `docs/verification_checks.md`).
+The budget figures are not in `data/` and no number on the dashboard
+comes from them.
+
+**Why, and what else was possible.** Ewing's budgets would give something
+the Census file cannot: what the township actually paid for streets and
+roads in every year, not only 2022. For 2021 to 2024 that was $998,001,
+$986,307, $1,041,136 and $1,104,003. That would make a real trend line for
+Ewing. It was left out for now because it is one town, so there would be
+nothing to compare the line with, and because the rule of this project is
+that every number on the dashboard traces to a raw file in `data/`. Adding
+it properly means saving the budget PDFs in `data/` and reading them with
+a script, the way the mileage PDFs are read.
 
 **Agree or disagree, and why:**

@@ -19,9 +19,10 @@ ufb_path <- "data/dca_ufb_database.xlsm"
 
 # Each yearly sheet has about 400 columns under three rows of headers, and
 # the same header repeats: "Public Works" appears five times (last year's
-# spending, this year's total budget, this year's general budget, full-time
-# employees, part-time employees). So we pick columns by Excel letter, and
-# then check that the header in that column says what we expect.
+# budget as modified, this year's total budget, this year's general
+# budget, full-time employees, part-time employees). So we pick columns by
+# Excel letter, and then check that the header in that column says what we
+# expect.
 #
 # DQ is "Public Works" under the group "General Budget Appropriations".
 # We use the general budget, not total appropriations (column CS), because
@@ -151,7 +152,7 @@ budget |>
   print(width = Inf)
 
 # Is solid waste ever missing when public works is not? If so, adding the
-# two together in script 03 would quietly lose those towns.
+# two together in script 04 would quietly lose those towns.
 budget |>
   filter(!is.na(public_works_budget), is.na(solid_waste_budget)) # expect 0 rows
 

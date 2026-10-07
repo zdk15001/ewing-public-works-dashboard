@@ -7,8 +7,10 @@ person whose name is on the request has to send it.
 
 ## Why this request
 
-The dashboard shows what Ewing budgets per mile of road. It cannot show
-what that budget buys. The township's paving records would let the
+The dashboard shows what Ewing spends on road upkeep per mile and what it
+budgets for public works. It cannot show repaving, which is paid for
+through the capital budget and is in none of the dashboard's measures.
+The township's paving records would fill that gap. They would let the
 dashboard add one line: at the number of miles repaved each year, how many
 years would it take to repave all 109.68 miles of township road once?
 
@@ -54,7 +56,7 @@ Notes on the wording:
 
 ## How the records would be used
 
-If the records arrive as a list of streets with lengths, a fifth script
+If the records arrive as a list of streets with lengths, one more script
 would add up miles repaved per year and the dashboard would gain one
 figure. There is no statewide source for this, so it would be compared
 with Ewing's own earlier years, not with other towns.
