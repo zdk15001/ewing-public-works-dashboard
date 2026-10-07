@@ -1,13 +1,16 @@
-# scripts/03_join_and_check.R
+# scripts/04_join_and_check.R
 #
-# Joins the budget table to the road mileage table and computes the
-# measure the dashboard shows: public works budget per mile of municipal
-# road.
+# Joins the three imported tables and computes the measures the dashboard
+# shows, all as dollars per mile of municipal road:
+#   1. Road upkeep, actual spending (Census Bureau, 2022)
+#   2. Public works, budgeted (state budget database, 2016 to 2026)
+#   3. Public works plus solid waste disposal, budgeted (same)
 #
 # Run from the project folder: open ewing-public-works-dashboard.Rproj first.
 # Reads:  output/budget_by_town_year.csv   (made by 01_import_budget.R)
 #         output/road_miles_by_town.csv    (made by 02_import_mileage.R)
-# Writes: output/public_works_per_mile.csv (the file the dashboard reads)
+#         output/road_spending_by_town.csv (made by 03_import_road_spending.R)
+# Writes: output/dollars_per_mile.csv      (the file the dashboard reads)
 
 # Load packages and data --------------------------------------------------
 
@@ -35,12 +38,21 @@ road_miles <- read_csv(
   )
 )
 
-# Give each town in the road table its municipal code ---------------------
+road_spending <- read_csv(
+  "output/road_spending_by_town.csv",
+  col_types = cols(
+    road_upkeep_dollars = col_double(),
+    road_construction_dollars = col_double(),
+    .default = col_character()
+  )
+)
 
-# The two sources have no key in common. The budget database has a code
+# The list of towns, with the code we join everything to ------------------
+
+# The three sources have no key in common. The budget database has a code
 # and a name ("Ewing township"). NJDOT has only a name, written its own
-# way ("Ewing Twp"). So we match on county plus name, after rewriting
-# NJDOT's abbreviations.
+# way ("Ewing Twp"). The Census Bureau has its own ID and its own spelling
+# ("EWING TOWNSHIP"). So we match on county plus name, in lower case.
 #
 # County has to be part of the key: New Jersey has five Washington
 # townships and two Hamilton townships.
@@ -51,11 +63,13 @@ town_list <- budget |>
 
 nrow(town_list) # expect 565 (564 today, plus Pine Valley through 2021)
 
-# Sixteen towns still do not match after the abbreviations are rewritten:
-# names where "City" is part of the name, punctuation, and three towns
-# whose type NJDOT lists differently. Each pair below was matched by hand,
-# by reading the two lists side by side within one county.
-name_fixes <- tribble(
+# Give each town in the road mileage table its municipal code -------------
+
+# Sixteen towns still do not match after NJDOT's abbreviations are
+# rewritten: names where "City" is part of the name, punctuation, and
+# three towns whose type NJDOT lists differently. Each pair below was
+# matched by hand, by reading the two lists side by side within one county.
+njdot_name_fixes <- tribble(
   ~county,    ~name_njdot,              ~municipality,
   "Atlantic", "Corbin City",            "Corbin City city",
   "Atlantic", "Egg Harbor City",        "Egg Harbor City city",
@@ -76,7 +90,7 @@ name_fixes <- tribble(
 )
 
 road_miles_keyed <- road_miles |>
-  left_join(name_fixes, by = c("county", "name_njdot")) |>
+  left_join(njdot_name_fixes, by = c("county", "name_njdot")) |>
   mutate(
     name_key = if_else(
       !is.na(municipality),
@@ -109,10 +123,54 @@ town_list |>
 # expect 1 row: Pine Valley borough. It is not in NJDOT's 2019 table, and
 # it merged into Pine Hill in 2022.
 
+# Give each town in the Census table its municipal code -------------------
+
+# The Census Bureau writes names in capitals with the type spelled out, so
+# lower case is enough for 553 of its 563 towns. The other ten were
+# matched by hand, the same way as above.
+census_name_fixes <- tribble(
+  ~county,    ~name_census,                   ~municipality,
+  "Atlantic", "ATLANTIC CITY CITY",           "Atlantic City",
+  "Atlantic", "EGG HARBOR CITY",              "Egg Harbor City city",
+  "Atlantic", "MARGATE CITY",                 "Margate City city",
+  "Bergen",   "WOOD RIDGE BOROUGH",           "Wood-Ridge borough",
+  "Camden",   "HI NELLA BOROUGH",             "Hi-Nella borough",
+  "Cape May", "SEA ISLE CITY",                "Sea Isle City city",
+  "Essex",    "ORANGE CITY TOWNSHIP",         "City of Orange township",
+  "Essex",    "SOUTH ORANGE VILLAGE VILLAGE", "South Orange Village township",
+  "Mercer",   "PRINCETON MUNICIPALITY",       "Princeton borough",
+  "Monmouth", "AVON BY THE SEA BOROUGH",      "Avon-by-the-Sea borough"
+)
+
+road_spending_coded <- road_spending |>
+  left_join(census_name_fixes, by = c("county", "name_census")) |>
+  mutate(
+    name_key = str_to_lower(if_else(
+      !is.na(municipality), municipality, name_census
+    ))
+  ) |>
+  select(-municipality) |>
+  left_join(town_list, by = c("county", "name_key"))
+
+nrow(road_spending_coded) # expect 563, the same as before the join
+
+road_spending_coded |>
+  filter(is.na(muni_code)) # expect 0 rows: no Census town left unmatched
+
+road_spending_coded |>
+  count(muni_code) |>
+  filter(n > 1) # expect 0 rows: no code matched twice
+
+# Which towns in the budget database are not in the Census file?
+town_list |>
+  anti_join(road_spending_coded, by = "muni_code")
+# expect 2 rows: Pine Valley borough (merged into Pine Hill in 2022) and
+# Lafayette township in Sussex County, which the Census file leaves out.
+
 # Join road miles onto the budget table ------------------------------------
 
 # Road miles are from March 2019, the only year NJDOT publishes by town.
-# Every budget year gets the same 2019 miles. See decision 4.
+# Every year gets the same 2019 miles. See decision 4.
 town_years <- budget |>
   left_join(
     road_miles_coded |>
@@ -122,8 +180,6 @@ town_years <- budget |>
 
 nrow(budget) # expect 6,210
 nrow(town_years) # expect 6,210: a left join on a unique key adds no rows
-
-# Compute the measure ------------------------------------------------------
 
 town_years <- town_years |>
   mutate(
@@ -141,22 +197,59 @@ town_years <- town_years |>
 town_years |> count(public_works_budget == 0, is.na(public_works_clean))
 town_years |> count(municipal_miles == 0, is.na(municipal_miles_clean))
 
-# One row per town, per year, per way of counting. The dashboard lets the
-# reader choose what to count, so each choice gets its own rows.
-per_mile <- town_years |>
+# The two budget measures: one row per town, per year, per measure ---------
+
+budget_measures <- town_years |>
   mutate(
-    `Public works` = public_works_clean,
-    `Public works plus solid waste disposal` =
+    `Public works, budgeted` = public_works_clean,
+    `Public works plus solid waste disposal, budgeted` =
       public_works_clean + solid_waste_budget
   ) |>
   pivot_longer(
-    cols = c(`Public works`, `Public works plus solid waste disposal`),
-    names_to = "what_counted",
-    values_to = "budget_dollars"
-  ) |>
-  mutate(dollars_per_mile = budget_dollars / municipal_miles_clean)
+    cols = c(
+      `Public works, budgeted`,
+      `Public works plus solid waste disposal, budgeted`
+    ),
+    names_to = "measure",
+    values_to = "dollars"
+  )
 
-nrow(per_mile) # expect 12,420: two rows for each of the 6,210 town-years
+nrow(budget_measures) # expect 12,420: two rows for each of 6,210 town-years
+
+# The road upkeep measure: one row per town, for 2022 only -----------------
+
+census_year <- 2022
+
+# Start from the budget table's 2022 rows so that every town is listed,
+# with the same names and population as everywhere else.
+road_measure <- town_years |>
+  filter(year == census_year) |>
+  left_join(
+    road_spending_coded |>
+      select(muni_code, road_upkeep_dollars, road_upkeep_flag),
+    by = "muni_code"
+  ) |>
+  mutate(
+    measure = "Road upkeep, actual spending",
+    # Keep only numbers the town itself reported (flag R). An imputed
+    # number (flag I) is the Census Bureau's estimate for a town that did
+    # not respond. It is fine for a state total and wrong for ranking one
+    # town against another. See decision 15.
+    dollars = if_else(road_upkeep_flag == "R", road_upkeep_dollars, NA)
+  )
+
+nrow(road_measure) # expect 564: one row per town in the 2022 budget sheet
+
+road_measure |> count(road_upkeep_flag, is.na(dollars))
+# expect 225 reported and kept; 245 imputed and 94 with nothing on file,
+# both set to missing
+
+# Stack the measures and compute dollars per mile --------------------------
+
+per_mile <- bind_rows(road_measure, budget_measures) |>
+  mutate(dollars_per_mile = dollars / municipal_miles_clean)
+
+nrow(per_mile) # expect 12,984: 564 + 12,420
 
 # Mark the comparison groups -----------------------------------------------
 
@@ -170,8 +263,9 @@ ewing_population <- budget |>
 ewing_population # 39,030 in the 2026 sheet
 
 # "Similar population" means within 25 percent of Ewing's population in
-# the latest year. The group is set once and used for every year, so the
-# trend figure follows the same towns over time. See decision 6.
+# the latest year. The group is set once and used for every year and
+# every measure, so the figures always compare the same towns. See
+# decision 6.
 similar_towns <- budget |>
   filter(
     year == latest_year,
@@ -193,9 +287,9 @@ per_mile <- per_mile |>
 
 glimpse(per_mile)
 
-# How many towns have a usable number, by year and way of counting?
+# How many towns have a usable number, by measure and year?
 per_mile |>
-  group_by(what_counted, year) |>
+  group_by(measure, year) |>
   summarize(
     towns = n(),
     usable = sum(!is.na(dollars_per_mile)),
@@ -205,13 +299,16 @@ per_mile |>
   ) |>
   print(n = Inf)
 
-# Ewing, latest year. These are the numbers to check by hand against the
-# two raw files. See docs/verification_checks.md.
+# Ewing: the road upkeep row, and the latest budget rows. These are the
+# numbers to check by hand against the raw files. See
+# docs/verification_checks.md.
 per_mile |>
-  filter(muni_code == ewing_code, year == latest_year) |>
+  filter(
+    muni_code == ewing_code,
+    (measure == "Road upkeep, actual spending") | (year == latest_year)
+  ) |>
   select(
-    year, municipality, what_counted, budget_dollars, municipal_miles,
-    dollars_per_mile
+    year, municipality, measure, dollars, municipal_miles, dollars_per_mile
   ) |>
   print(width = Inf)
 
@@ -220,7 +317,7 @@ per_mile |>
 per_mile |>
   select(
     year, muni_code, municipality, county, town_label, population,
-    similar_population, municipal_miles, what_counted, budget_dollars,
+    similar_population, municipal_miles, measure, dollars,
     dollars_per_mile
   ) |>
-  write_csv("output/public_works_per_mile.csv")
+  write_csv("output/dollars_per_mile.csv")
